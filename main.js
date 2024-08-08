@@ -1,96 +1,82 @@
-const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d");
+import * as THREE from "three";
 
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
-ctx.textRendering = "optimizeLegibility";
+import { FontLoader } from "three/addons/loaders/FontLoader.js";
+import { TextGeometry } from "three/addons/geometries/TextGeometry.js";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
-const BACKGROUND_COLOR = "#050d05";
+window.addEventListener(
+  "resize",
+  () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
 
-const DEFAULT_COLOR = "white";
-const HOVERED_COLOR = "teal";
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  },
+  false
+);
 
-const BIT_VIEW_SIZE = 100;
-const BIT_VIEW_OFFSET = 50;
-const BIT_VIEW_WIDTH = 2;
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
 
-const bits = [0, 0, 0, 0, 0, 0, 0, 0];
-const boxes = [];
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(
+  75,
+  window.innerWidth / window.innerHeight,
+  0.1,
+  1000
+);
 
-let decimalValue = 0;
+const controls = new OrbitControls(camera, renderer.domElement);
 
-for (let i = 0; i < bits.length; i++) {
-  boxes[i] = new Path2D();
-  boxes[i].rect(
-    BIT_VIEW_OFFSET + (BIT_VIEW_SIZE + BIT_VIEW_WIDTH) * i,
-    BIT_VIEW_OFFSET,
-    BIT_VIEW_SIZE,
-    BIT_VIEW_SIZE
-  );
+let globalFont;
+
+const loader = new FontLoader();
+
+let textGeo, textMesh, centerOffset;
+
+loader.load("fonts/Outfit.json", function (font) {
+  globalFont = font;
+
+  textGeo = new TextGeometry("Blah blah!", {
+    font: globalFont,
+
+    size: 80,
+    depth: 0,
+  });
+  textMesh = new THREE.Mesh(textGeo, textMats);
+  textGeo.computeBoundingBox();
+  centerOffset = -0.5 * (textGeo.boundingBox.max.x - textGeo.boundingBox.min.x);
+  textMesh.position.x = centerOffset;
+  textMesh.position.y = 100;
+  textMesh.position.z = -300;
+  scene.add(textMesh);
+});
+
+const geometry = new THREE.BoxGeometry(1, 1, 1);
+const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+const cube = new THREE.Mesh(geometry, material);
+scene.add(cube);
+
+const textMats = [
+  new THREE.MeshPhongMaterial({ color: 0xffffff, flatShading: true }), // front
+  new THREE.MeshPhongMaterial({ color: 0xffffff }), // side
+];
+
+const light = new THREE.AmbientLight(0xffffff, 2); // soft white light
+scene.add(light);
+
+var grid = new THREE.GridHelper(100, 20);
+scene.add(grid);
+
+camera.position.z = 5;
+
+function animate() {
+  cube.rotation.x += 0.01;
+  cube.rotation.y += 0.01;
+
+  controls.update();
+
+  renderer.render(scene, camera);
 }
-
-// EVENTS
-window.addEventListener("resize", () => {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-
-  draw();
-});
-
-canvas.addEventListener("mousemove", (event) => {
-  for (let i = 0; i < boxes.length; i++) {
-    boxes[i].isHovered = ctx.isPointInPath(
-      boxes[i],
-      event.clientX,
-      event.clientY
-    );
-  }
-
-  draw();
-});
-
-canvas.addEventListener("click", (event) => {
-  for (let i = 0; i < boxes.length; i++) {
-    const isClicked = ctx.isPointInPath(boxes[i], event.clientX, event.clientY);
-
-    if (isClicked) {
-      bits[i] = 1 - bits[i];
-      update();
-    }
-  }
-
-  draw();
-});
-
-const update = () => {
-  decimalValue = 0;
-  for (let i = 0; i < bits.length; i++) {
-    if (bits[i] === 0) continue;
-    decimalValue += Math.pow(2, bits.length - i - 1);
-  }
-};
-
-const draw = () => {
-  ctx.fillStyle = BACKGROUND_COLOR;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  for (let i = 0; i < bits.length; i++) {
-    ctx.strokeStyle = boxes[i].isHovered ? HOVERED_COLOR : DEFAULT_COLOR;
-    ctx.lineWidth = BIT_VIEW_WIDTH;
-    ctx.stroke(boxes[i]);
-
-    ctx.fillStyle = boxes[i].isHovered ? HOVERED_COLOR : DEFAULT_COLOR;
-    ctx.font = "50px Outfit";
-    ctx.fillText(
-      bits[i],
-      BIT_VIEW_OFFSET + (BIT_VIEW_SIZE + BIT_VIEW_WIDTH) * i + 35,
-      BIT_VIEW_OFFSET + 65
-    );
-
-    ctx.fillStyle = DEFAULT_COLOR;
-    ctx.font = "200 60px Outfit";
-    ctx.fillText("Decimal value: " + decimalValue, BIT_VIEW_OFFSET, 250);
-  }
-};
-
-draw();
+renderer.setAnimationLoop(animate);
